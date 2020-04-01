@@ -1,0 +1,67 @@
+plugins {
+	id 'org.springframework.boot' version '2.2.6.RELEASE'
+	id 'java'
+	id 'jacoco'
+	id 'com.github.spotbugs' version '3.0.0'
+	id 'com.novoda.static-analysis' version '1.2'
+}
+
+apply plugin: 'io.spring.dependency-management'
+
+group = 'com.penroz.kafka'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '13'
+
+repositories {
+	mavenCentral()
+	maven { url 'https://repo.spring.io/snapshot' }
+	maven { url 'https://repo.spring.io/milestone' }
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-json'
+	implementation 'org.springframework.kafka:spring-kafka'
+	
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+configurations.all {
+	exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+}
+
+test {
+	exclude '**/*Integration*'
+}
+
+test.finalizedBy(jacocoTestReport, jacocoTestCoverageVerification)
+
+jacocoTestCoverageVerification {
+	violationRules {
+		rule {
+			limit {
+				minimum = 0.6
+			}
+		}
+	}
+}
+
+task itest(type: Test) {
+	description = 'Runs the integration tests'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	outputs.upToDateWhen { false }
+	include '**/*Integration*'
+	testLogging.showStandardStreams = true
+}
+
+staticAnalysis {
+	penalty {
+		maxErrors = 0
+		maxWarnings = 0
+	}
+	spotbugs {
+		toolVersion = '4.0.0-beta1'
+ 		htmlReportEnabled = true
+	}
+}

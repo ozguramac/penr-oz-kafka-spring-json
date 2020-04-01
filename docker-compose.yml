@@ -1,0 +1,79 @@
+version: '3'
+services:
+  openjdk-13:
+    image: openjdk:13.0.2
+    container_name: openjdk-13
+    entrypoint: javac -version
+
+  build-penr-oz-kafka-spring:
+    image: openjdk:13.0.2
+    container_name: build-penr-oz-kafka-spring-json
+    working_dir: /code
+    volumes:
+      - ./:/code/
+    entrypoint: ./gradlew --no-daemon
+    command: build
+    environment:
+      GRADLE_USER_HOME: /code/.gradle
+
+  itest-penr-oz-kafka-spring:
+    image: openjdk:13.0.2
+    container_name: itest-penr-oz-kafka-spring-json
+    working_dir: /code
+    volumes:
+      - ./:/code/
+    entrypoint: ./gradlew --no-daemon
+    command: itest
+    depends_on:
+      - penr-oz-kafka
+    environment:
+      GRADLE_USER_HOME: /code/.gradle
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: penr-oz-kafka:9092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: penr-oz-kafka-spring-itest-consumer-group
+      SPRING_KAFKA_TEMPLATE_DEFAULT_TOPIC: penr-oz-kafka-spring-itest-topic
+
+  penr-oz-kafka-spring:
+    image: openjdk:13-alpine
+    container_name: penr-oz-kafka-spring-json
+    volumes:
+      - ./build/libs/penr-oz-kafka-spring-json-0.0.1-SNAPSHOT.jar:/app.jar
+    entrypoint: java
+    command: -jar /app.jar
+    depends_on:
+      - penr-oz-kafka
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: penr-oz-kafka:9092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: penr-oz-kafka-spring-consumer-group
+      SPRING_KAFKA_TEMPLATE_DEFAULT_TOPIC: penr-oz-kafka-spring-topic
+
+  penr-oz-kafka:
+    image: confluentinc/cp-kafka:5.4.1
+    container_name: penr-oz-kafka-for-spring-json
+    depends_on:
+      - penr-oz-zookeeper
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: penr-oz-zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://penr-oz-kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_BROKER_ID: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: nc -z localhost 9092
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  penr-oz-zookeeper:
+    image: confluentinc/cp-zookeeper:5.4.1
+    container_name: penr-oz-zookeeper-for-spring-json
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    healthcheck:
+      test: nc -z localhost $${ZOOKEEPER_CLIENT_PORT}
+      interval: 10s
+      timeout: 5s
+      retries: 5
